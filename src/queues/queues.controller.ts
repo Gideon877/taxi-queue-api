@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Put } from '@nestjs/common';
 import { QueuesService } from './queues.service';
-import { QueueField } from 'src/utils/enums';
+// import { QueueField } from 'src/utils/enums';
+import { UpdateQueueDto } from './dto/update-queue.dto';
 
 @Controller('queues')
 export class QueuesController {
@@ -11,18 +12,24 @@ export class QueuesController {
         return await this.queuesService.getAllQueues();
     }
 
-    @Get('today')
-    async getTodayQueue() {
-        return await this.queuesService.getOrCreateTodayQueue();
-    }
+    // @Get('today')
+    // async getTodayQueue() {
+    //     return await this.queuesService.getOrCreateTodayQueue();
+    // }
 
     @Put()
-    async updateQueueCount(@Body() { queueId, count, field }: { queueId: number, count: number, field: QueueField }) {
-        return await this.queuesService.updateQueueCount(queueId, field, count);
-    }
+  async updateQueueCount(@Body() updateQueueDto: UpdateQueueDto) {
+    const { queueId, count, field } = updateQueueDto;
+    return await this.queuesService.updateQueueCount(queueId, field, count);
+  }
 
-    @Put('departure/:queueId')
-    async onDeparture(@Param('queueId') queueId: number) {
-        return await this.queuesService.onDeparture(queueId);
+    // @Put('departure/:queueId')
+    // async onDeparture(@Param('queueId') queueId: number) {
+    //     return await this.queuesService.onDeparture(queueId);
+    // }
+
+    @Put('departure/:routeId')
+    async onDeparture(@Param('routeId') routeId: number) {
+        return await this.queuesService.processTaxiDeparture(routeId);
     }
 }

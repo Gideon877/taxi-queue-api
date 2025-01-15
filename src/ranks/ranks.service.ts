@@ -1,26 +1,66 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateRankDto } from './dto/create-rank.dto';
 import { UpdateRankDto } from './dto/update-rank.dto';
+import { rankTable } from '../db/schema'
+import { db } from 'src/db';
+import { eq } from 'drizzle-orm';
+import { capitalizeWords } from 'src/utils';
 
 @Injectable()
 export class RanksService {
-  create(createRankDto: CreateRankDto) {
-    return 'This action adds a new rank';
-  }
+    async create(createRankDto: CreateRankDto) {
+        const rankName = capitalizeWords(createRankDto.rankName)
+        const newRank = await db
+            .insert(rankTable)
+            .values({rankName})
+            .returning();
 
-  findAll() {
-    return `This action returns all ranks`;
-  }
+        return newRank[0];
+    }
 
-  findOne(id: number) {
-    return `This action returns a #${id} rank`;
-  }
+    async findAll() {
+        return await db.select().from(rankTable).execute();
+    }
 
-  update(id: number, updateRankDto: UpdateRankDto) {
-    return `This action updates a #${id} rank`;
-  }
+    async findOne(id: number) {
+        const rank = await db
+            .select()
+            .from(rankTable)
+            .where(eq(rankTable.id, id))
+            .execute();
 
-  remove(id: number) {
-    return `This action removes a #${id} rank`;
-  }
+        if (rank.length === 0) {
+            throw new NotFoundException(`Rank with ID ${id} not found`);
+        }
+
+        return rank[0];
+    }
+
+    async update(id: number, updateRankDto: UpdateRankDto) {
+        const rankName = capitalizeWords(updateRankDto.rankName)
+        const updatedRank = await db
+            .update(rankTable)
+            .set({ rankName })
+            .where(eq(rankTable.id, id))
+            .returning();
+
+        if (updatedRank.length === 0) {
+            throw new NotFoundException(`Rank with ID ${id} not found`);
+        }
+
+        return updatedRank[0];
+    }
+
+    async remove(id: number) {
+        const deletedRank = await db
+            .delete(rankTable)
+            .where(eq(rankTable.id, id))
+            .returning();
+
+        if (deletedRank.length === 0) {
+            throw new NotFoundException(`Rank with ID ${id} not found`);
+        }
+
+        return { message: `Rank with ID ${id} successfully deleted` };
+    }
 }

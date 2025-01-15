@@ -1,30 +1,35 @@
-import { sql } from 'drizzle-orm';
+// import { sql } from 'drizzle-orm';
 import { integer, pgTable, timestamp, text } from 'drizzle-orm/pg-core';
-
-export const queueTable = pgTable("queue", {
-    id: integer().primaryKey().generatedAlwaysAsIdentity(),
-    passenger_queue_count: integer().default(0).notNull(),
-    taxi_queue_count: integer().default(0).notNull(),
-    taxi_departed_count: integer().default(0).notNull(),
-    created_at: timestamp().defaultNow(),
-    updated_at: timestamp().defaultNow().$onUpdateFn(() => sql`CURRENT_TIMESTAMP`),
-});
-
 
 export const rankTable = pgTable("rank", {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
-    queue_id: integer().references(()=> queueTable.id, {onDelete: 'cascade'}).notNull(),
-    rank: text().notNull(),
-    created_at: timestamp().defaultNow(),
-    updated_at: timestamp().defaultNow().$onUpdateFn(() => sql`CURRENT_TIMESTAMP`),
+    rankName: text().notNull(),
+    createdAt: timestamp().defaultNow(),
+    updatedAt: timestamp().defaultNow(). $onUpdateFn(() => new Date()),
 })
 
-export const taxiFare = pgTable("taxi_fare", {
+export const taxiRouteTable = pgTable("route", {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
-    queue_id: integer().references(()=> queueTable.id, {onDelete: 'cascade'}).notNull(),
     fare: integer().notNull().default(0),
-    from_id: integer().notNull().references(()=> rankTable.id, {onDelete: 'cascade'}),
-    to_id: integer().notNull().references(()=> rankTable.id, {onDelete: 'cascade'}),
-    created_at: timestamp().defaultNow(),
-    updated_at: timestamp().defaultNow().$onUpdateFn(() => sql`CURRENT_TIMESTAMP`),
+    fromRankId: integer().notNull().references(()=> rankTable.id, {onDelete: 'cascade'}),
+    toRankId: integer().notNull().references(()=> rankTable.id, {onDelete: 'cascade'}),
+    createdAt: timestamp().defaultNow(),
+    updatedAt: timestamp().defaultNow().$onUpdateFn(() => new Date()),
 })
+
+export const queueTable = pgTable("queue", {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    passengerQueueCount: integer().default(0).notNull(),
+    taxiQueueCount: integer().default(0).notNull(),
+    taxiDepartedCount: integer().default(0).notNull(),
+    createdAt: timestamp().defaultNow(),
+    updatedAt: timestamp().defaultNow().$onUpdateFn(() => new Date()),
+});
+
+export const queueRouteTable = pgTable("queue_route", {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    queueId: integer().references(() => queueTable.id, { onDelete: 'cascade' }).notNull(),
+    taxiRouteId: integer().references(() => taxiRouteTable.id, { onDelete: 'cascade' }).notNull(),
+    createdAt: timestamp().defaultNow(),
+    updatedAt: timestamp().defaultNow().$onUpdateFn(() => new Date()),
+});
