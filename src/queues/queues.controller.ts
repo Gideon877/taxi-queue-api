@@ -17,19 +17,19 @@ export class QueuesController {
     //     return await this.queuesService.getOrCreateTodayQueue();
     // }
 
+    @Get(':id')
+    async getQueueById(@Param('id') id: string){
+        return await this.queuesService.getQueueById(+id);
+    }
+
     @Put()
   async updateQueueCount(@Body() updateQueueDto: UpdateQueueDto) {
     const { queueId, count, field } = updateQueueDto;
     return await this.queuesService.updateQueueCount(queueId, field, count);
   }
 
-    // @Put('departure/:queueId')
-    // async onDeparture(@Param('queueId') queueId: number) {
-    //     return await this.queuesService.onDeparture(queueId);
-    // }
-
-    @Put('departure/:routeId')
-    async onDeparture(@Param('routeId') routeId: number) {
-        return await this.queuesService.processTaxiDeparture(routeId);
+    @Put('departure/:queueId')
+    async onDeparture(@Param('queueId') queueId: string) {
+        return await this.queuesService.onDeparture(+queueId);
     }
 }
