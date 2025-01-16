@@ -1,10 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { eq, sql } from 'drizzle-orm';
-import * as moment from "moment";
 import { db } from 'src/db';
-import { queueRouteTable, queueTable } from 'src/db/schema';
+import { queueRouteTable, queueTable, taxiRouteTable } from 'src/db/schema';
 import { TaxiRoutesService } from 'src/taxi_routes/taxi_routes.service';
-import { currentTimeStamp, QueueConstants } from 'src/utils';
+import { QueueConstants } from 'src/utils';
 import { QueueField } from 'src/utils/enums';
 
 @Injectable()
@@ -13,6 +12,47 @@ export class QueuesService {
 
     async getAllQueues() {
         return await db.select().from(queueTable);
+    }
+
+    /**
+     * Get fare by queueId.
+     * @param queueId - The ID of the queue to fetch fare details.
+     * @returns The fare information, including details from related tables.
+     */
+    async getFareByQueueId(queueId: number) {
+        const result = await db
+            .select({
+                queueId: queueRouteTable.queueId,
+                fare: taxiRouteTable.fare,
+                fromRankId: taxiRouteTable.fromRankId,
+                toRankId: taxiRouteTable.toRankId,
+            })
+            .from(queueRouteTable)
+            .innerJoin(taxiRouteTable, eq(queueRouteTable.taxiRouteId, taxiRouteTable.id))
+            .where(eq(queueRouteTable.queueId, queueId))
+            .execute();
+
+        if (result.length === 0) {
+            throw new Error(`No fare found for queueId: ${queueId}`);
+        }
+
+        return result[0];
+    }
+
+
+    async getQueueById(id: number) {
+        const queue = await db
+            .select()
+            .from(queueTable)
+            .where(eq(queueTable.id, id))
+            .execute();
+
+        if (queue.length === 0) {
+            throw new NotFoundException(`Queue with ID ${id} not found`);
+        }
+        const queueInfo = await this.getFareByQueueId(id);
+
+        return { ...queue[0], fare: queueInfo.fare };
     }
 
     async getQueuesForRoute(routeId: number) {
@@ -27,16 +67,12 @@ export class QueuesService {
         return queuesForRoute
     }
 
-
     async updateQueueCount(queueId: number, field: QueueField, count: number) {
-        const updatedAt = currentTimeStamp()
-        console.log({ queueId, field, count })
 
         const result = await db
             .update(queueTable)
             .set({
                 [field]: count,
-                updated_at: updatedAt,
             })
             .where(eq(queueTable.id, queueId))
             .execute();
@@ -51,95 +87,58 @@ export class QueuesService {
         };
     }
 
-    // async onDeparture(queueId: number): Promise<any> {
+    async onDeparture(queueId: number): Promise<any> {
 
-    //     try {
-    //         const currentQueue = await db
-    //             .select()
-    //             .from(queueTable)
-    //             .where(eq(queueTable.id, queueId))
-    //             .execute();
+        try {
+            const currentQueue = await db
+                .select()
+                .from(queueTable)
+                .where(eq(queueTable.id, queueId))
+                .execute();
 
-    //         if (currentQueue.length === 0) {
-    //             throw new Error("Queue not found");
-    //         }
+            if (currentQueue.length === 0) {
+                throw new Error("Queue not found");
+            }
 
-    //         const { passengerQueueCount, taxiQueueCount } = currentQueue[0];
+            const { passengerQueueCount, taxiQueueCount } = currentQueue[0];
 
-    //         console.log( { passengerQueueCount, taxiQueueCount })
+            if (passengerQueueCount >= QueueConstants.MAX_TAXI_PASSENGERS_PER_RIDE && taxiQueueCount > 0) {
+                await db.update(queueTable)
+                    .set({
+                        passengerQueueCount: sql`${queueTable.passengerQueueCount} - ${QueueConstants.MAX_TAXI_PASSENGERS_PER_RIDE}`,
+                        taxiQueueCount: sql`${queueTable.taxiQueueCount} - 1`,
+                        taxiDepartedCount: sql`${queueTable.taxiDepartedCount} + 1`,
+                    })
+                    .where(eq(queueTable.id, queueId))
+                    .execute();
+            } else {
+                throw new Error("Not enough passengers or no taxis available for departure");
+            }
 
-    //         if (passengerQueueCount >= QueueConstants.MAX_TAXI_PASSENGERS_PER_RIDE && taxiQueueCount > 0) {
-    //             await db.update(queueTable)
-    //                 .set({
-    //                     passengerQueueCount: sql`${queueTable.passengerQueueCount} - ${QueueConstants.MAX_TAXI_PASSENGERS_PER_RIDE}`,
-    //                     taxiQueueCount: sql`${queueTable.taxiQueueCount} - 1`,
-    //                     taxiDepartedCount: sql`${queueTable.taxiDepartedCount} + 1`,
-    //                     updated_at: currentTimeStamp(),
-    //                 })
-    //                 .where(eq(queueTable.id, queueId))
-    //                 .execute();
-    //         } else {
-    //             throw new Error("Not enough passengers or no taxis available for departure");
-    //         }
-
-    //     } catch (error) {
-    //         console.log(error);
-    //         return {
-    //             message: error.message,
-    //         }
-    //     }
-
-    // }
-
-    async  processTaxiDeparture(routeId: number) {
-        // Retrieve route along with queue info
-        const route = await this.taxiRoutesService.getRouteWithQueueInfo(routeId);
-    
-        if (!route) {
-            throw new Error(`Route with ID ${routeId} not found`);
+        } catch (error) {
+            console.log(error);
+            return {
+                message: error.message,
+            }
         }
-    
-        // Assuming route.queues is an object with 'fromQueue' and 'toQueue'
-        const { queues } = route; 
-
-
-        console.log(queues)
-
-        // const fromQueue = queues?.fromQueue;
-        // const toQueue = queues?.toQueue;
-    
-        // // Validate if fromQueue and toQueue exist
-        // if (!fromQueue || !toQueue) {
-        //     throw new Error('Queue information is missing');
-        // }
-    
-        // // Check if there are enough passengers in the departure queue
-        // if (fromQueue.passengerQueueCount < QueueConstants.MAX_TAXI_PASSENGERS_PER_RIDE) {
-        //     throw new Error('Not enough passengers in the departure queue');
-        // }
-    
-        // // Update the 'fromQueue' by reducing passengers and taxi count, and increasing departed count
-        // await db.update(queueTable)
-        //     .set({
-        //         passengerQueueCount: sql`${queueTable.passengerQueueCount} - ${QueueConstants.MAX_TAXI_PASSENGERS_PER_RIDE}`,
-        //         taxiQueueCount: sql`${queueTable.taxiQueueCount} - 1`,
-        //         taxiDepartedCount: sql`${queueTable.taxiDepartedCount} + 1`,
-        //     })
-        //     .where(eq(queueTable.id, fromQueue.id))  // Use 'fromQueue.id' which is obtained from the route
-        //     .execute();
-    
-        // // Update the 'toQueue' by adding passengers from the 'fromQueue'
-        // await db.update(queueTable)
-        //     .set({
-        //         passengerQueueCount: sql`${queueTable.passengerQueueCount} + ${QueueConstants.MAX_TAXI_PASSENGERS_PER_RIDE}`,
-        //     })
-        //     .where(eq(queueTable.id, toQueue.id))  // Use 'toQueue.id' which is obtained from the route
-        //     .execute();
-    
-        return { message: 'Taxi departure processed successfully' };
     }
-    
 
+    async createQueue() {
+        const newQueue = await db
+            .insert(queueTable)
+            .values({
+                passengerQueueCount: 0,
+                taxiQueueCount: 0,
+                taxiDepartedCount: 0,
+            })
+            .returning()
+            .execute();
+
+        return newQueue[0]
+    }
+
+
+    // TODO: To be implemented for each rank to have new queue every day
     // async getOrCreateTodayQueue() {
     //     const todayDate = moment().format('YYYY-MM-DD');
     //     const existingQueue = await db
