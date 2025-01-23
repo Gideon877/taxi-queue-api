@@ -1,8 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { CreateTaxiRouteDto } from './dto/create-taxi_route.dto';
-// import { UpdateTaxiRouteDto } from './dto/update-taxi_route.dto';
-import { taxiRouteTable, rankTable, queueTable, queueRouteTable } from '../db/schema';
-import { and, eq, or, sql } from 'drizzle-orm';
+import { taxiRouteTable, rankTable, queueTable, queueRouteTable, taxiRouteRelations, rankRelations } from '../db/schema';
+import { and, desc, eq, or, sql } from 'drizzle-orm';
 import { db } from 'src/db';
 import { UpdateTaxiRouteDto } from './dto/update-taxi_route.dto';
 
@@ -26,13 +25,13 @@ export class TaxiRoutesService {
 
     async addRoute(createTaxiRouteDto: CreateTaxiRouteDto) {
         const { fare, fromRankId, toRankId } = createTaxiRouteDto;
-    
+
         const arrivalData = {
             fare,
             toRankId: fromRankId,
             fromRankId: toRankId,
         };
-    
+
         // Check if departRoute already exists
         const existingDepartRoute = await db
             .select()
@@ -44,7 +43,7 @@ export class TaxiRoutesService {
                 )
             )
             .execute();
-    
+
         // Check if arrivalRoute already exists
         const existingArrivalRoute = await db
             .select()
@@ -56,7 +55,7 @@ export class TaxiRoutesService {
                 )
             )
             .execute();
-    
+
         let departRoute;
         if (existingDepartRoute.length === 0) {
             // Create departRoute if it doesn't exist
@@ -68,7 +67,7 @@ export class TaxiRoutesService {
         } else {
             departRoute = existingDepartRoute[0];
         }
-    
+
         let arrivalRoute;
         if (existingArrivalRoute.length === 0) {
             // Create arrivalRoute if it doesn't exist
@@ -80,13 +79,13 @@ export class TaxiRoutesService {
         } else {
             arrivalRoute = existingArrivalRoute[0];
         }
-    
+
         return {
             departRoute,
             arrivalRoute,
         };
     }
-    
+
 
     async getRankName(rankId: number): Promise<string> {
         const result = await db
@@ -178,7 +177,7 @@ export class TaxiRoutesService {
                 fromRankId: taxiRouteTable.fromRankId,
                 toRankId: taxiRouteTable.toRankId,
                 toRankName: rankTable.rankName,
-                queueId: queueRouteTable.queueId, // Include queueId
+                queueId: queueRouteTable.queueId,
             })
             .from(taxiRouteTable)
             .leftJoin(rankTable, eq(taxiRouteTable.toRankId, rankTable.id)) // Join with rankTable for toRankName
@@ -192,7 +191,7 @@ export class TaxiRoutesService {
         return routes;
     }
 
-    async  getRouteDetailsByQueueId(queueId: number) {
+    async getRouteDetailsByQueueId(queueId: number) {
         const routeDetails = await db
             .select({
                 routeId: taxiRouteTable.id,
@@ -209,7 +208,7 @@ export class TaxiRoutesService {
             .leftJoin(rankTable, eq(taxiRouteTable.fromRankId, rankTable.id))
             .where(eq(queueRouteTable.queueId, queueId))
             .execute();
-    
+
         return routeDetails[0];
     }
 
@@ -244,4 +243,130 @@ export class TaxiRoutesService {
 
         return routesForQueue;
     }
+
+    // async getAllRoutes() {
+    //     return db
+    //         .select({
+    //             id: taxiRouteTable.id,
+    //             fare: taxiRouteTable.fare,
+    //             fromRankId: taxiRouteTable.fromRankId,
+    //             toRankId: taxiRouteTable.toRankId,
+    //             fromRankName: rankTable.rankName.as('fromRankName'),
+    //             toRankName: rankTable.rankName.as('toRankName'),
+    //         })
+    //         .from(taxiRouteTable)
+    //         .leftJoin(rankTable, eq(taxiRouteTable.fromRankId, rankTable.id)) 
+    //         .leftJoin(rankTable, eq(taxiRouteTable.toRankId, rankTable.id)); 
+    // }
+
+
+    async getTotalRoutes() {
+        const result = await db
+            .select({ total: sql`COUNT(*)` })
+            .from(taxiRouteTable)
+            .execute();
+        return result[0].total;
+    }
+
+    async getRoutesWithHighestFare(limit = 5) {
+        return db
+            .select({
+                id: taxiRouteTable.id,
+                fare: taxiRouteTable.fare,
+                fromRankId: taxiRouteTable.fromRankId,
+                toRankId: taxiRouteTable.toRankId,
+                fromRankName: sql`"fromRank"."rankName"`,
+                toRankName: sql`"toRank"."rankName"`,
+            })
+            .from(taxiRouteTable)
+            .leftJoin(sql`rank as "fromRank"`, eq(taxiRouteTable.fromRankId, sql`"fromRank".id`))
+            .leftJoin(sql`rank as "toRank"`, eq(taxiRouteTable.toRankId, sql`"toRank".id`))
+            .orderBy(desc(taxiRouteTable.fare))
+            .limit(limit)
+            .execute();
+    }
+
+    async getMostFrequentRoutes(limit = 5) {
+        return db
+            .select({
+                taxiRouteId: queueRouteTable.taxiRouteId,
+                routeCount: sql`COUNT(*)`,
+                fromRankName: sql`"fromRank"."rankName"`,
+                toRankName: sql`"toRank"."rankName"`,
+            })
+            .from(queueRouteTable)
+            .leftJoin(taxiRouteTable, eq(queueRouteTable.taxiRouteId, taxiRouteTable.id))
+            .leftJoin(sql`rank as "fromRank"`, eq(taxiRouteTable.fromRankId, sql`"fromRank".id`))
+            .leftJoin(sql`rank as "toRank"`, eq(taxiRouteTable.toRankId, sql`"toRank".id`))
+            .groupBy(
+                queueRouteTable.taxiRouteId,
+                sql`"fromRank"."rankName"`,
+                sql`"toRank"."rankName"`
+            )
+            .orderBy(desc(sql`COUNT(*)`))
+            .limit(limit)
+            .execute();
+    }
+
+
+    async getTotalPassengers() {
+        const result = await db
+            .select({ totalPassengers: sql`SUM(${queueTable.passengerQueueCount})` })
+            .from(queueTable)
+            .execute();
+        return result[0].totalPassengers;
+    }
+
+    async getAverageFare() {
+        const result = await db
+            .select({ averageFare: sql`AVG(${taxiRouteTable.fare})` })
+            .from(taxiRouteTable)
+            .execute();
+        return result[0].averageFare;
+    }
+
+    async getTotalTaxiDepartures() {
+        const result = await db
+            .select({ totalDepartures: sql`SUM(${queueTable.taxiDepartedCount})` })
+            .from(queueTable)
+            .execute();
+        return result[0].totalDepartures;
+    }
+
+    async getQueuesWithMostDepartures(limit = 5) {
+        return db
+            .select({
+                id: queueTable.id,
+                departures: queueTable.taxiDepartedCount,
+                fromRankName: sql`(SELECT "rankName" FROM rank WHERE id = ${taxiRouteTable.fromRankId})`,
+                toRankName: sql`(SELECT "rankName" FROM rank WHERE id = ${taxiRouteTable.toRankId})`,
+            })
+            .from(queueTable)
+            .leftJoin(queueRouteTable, eq(queueTable.id, queueRouteTable.queueId))
+            .leftJoin(taxiRouteTable, eq(queueRouteTable.taxiRouteId, taxiRouteTable.id))
+            .groupBy(
+                queueTable.id,
+                taxiRouteTable.fromRankId,
+                taxiRouteTable.toRankId
+            )
+            .orderBy(desc(queueTable.taxiDepartedCount))
+            .limit(limit)
+            .execute();
+    }
+    
+    
+
+    async getTotalFareByFromRank() {
+        return db
+            .select({
+                fromRankId: taxiRouteTable.fromRankId,
+                fromRankName: rankTable.rankName,
+                totalFare: sql`SUM(${taxiRouteTable.fare})`,
+            })
+            .from(taxiRouteTable)
+            .leftJoin(rankTable, eq(taxiRouteTable.fromRankId, rankTable.id))
+            .groupBy(taxiRouteTable.fromRankId, rankTable.rankName)
+            .execute();
+    }
+
 }

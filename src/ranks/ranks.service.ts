@@ -3,7 +3,7 @@ import { CreateRankDto } from './dto/create-rank.dto';
 import { UpdateRankDto } from './dto/update-rank.dto';
 import { rankTable } from '../db/schema'
 import { db } from 'src/db';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { capitalizeWords } from 'src/utils';
 
 @Injectable()
@@ -62,5 +62,13 @@ export class RanksService {
         }
 
         return { message: `Rank with ID ${id} successfully deleted` };
+    }
+
+    async getTotalRanks() {
+        const result = await db
+            .select({ total: sql`COUNT(*)` })
+            .from(rankTable)
+            .execute();
+        return result[0].total;
     }
 }

@@ -137,6 +137,14 @@ export class QueuesService {
         return newQueue[0]
     }
 
+    async getTotalQueues() {
+        const result = await db
+            .select({ total: sql`COUNT(*)` })
+            .from(queueTable)
+            .execute();
+        return result[0].total;
+    }
+
 
     // TODO: To be implemented for each rank to have new queue every day
     // async getOrCreateTodayQueue() {
