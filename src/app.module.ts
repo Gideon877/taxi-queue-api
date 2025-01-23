@@ -5,11 +5,12 @@ import { QueuesController } from './queues/queues.controller';
 import { QueuesService } from './queues/queues.service';
 import { RanksModule } from './ranks/ranks.module';
 import { TaxiRoutesModule } from './taxi_routes/taxi_routes.module';
+import { StatsModule } from './stats/stats.module';
 
 config();
 
 @Module({
-	imports: [QueuesModule, RanksModule, TaxiRoutesModule],
+	imports: [QueuesModule, RanksModule, TaxiRoutesModule, StatsModule],
 	controllers: [
 		QueuesController
 	],
