@@ -1,9 +1,92 @@
 {
-  "id": "0e9ace3e-40ac-4593-82c9-ea44ec090839",
+  "id": "c5afb979-ec88-495c-94cb-5a3cafe2644c",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
+    "public.queue_route": {
+      "name": "queue_route",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "queue_route_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "queueId": {
+          "name": "queueId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "taxiRouteId": {
+          "name": "taxiRouteId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "queue_route_queueId_queue_id_fk": {
+          "name": "queue_route_queueId_queue_id_fk",
+          "tableFrom": "queue_route",
+          "tableTo": "queue",
+          "columnsFrom": [
+            "queueId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "queue_route_taxiRouteId_route_id_fk": {
+          "name": "queue_route_taxiRouteId_route_id_fk",
+          "tableFrom": "queue_route",
+          "tableTo": "route",
+          "columnsFrom": [
+            "taxiRouteId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.queue": {
       "name": "queue",
       "schema": "",
@@ -25,36 +108,36 @@
             "cycle": false
           }
         },
-        "passenger_queue_count": {
-          "name": "passenger_queue_count",
+        "passengerQueueCount": {
+          "name": "passengerQueueCount",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "default": 0
         },
-        "taxi_queue_count": {
-          "name": "taxi_queue_count",
+        "taxiQueueCount": {
+          "name": "taxiQueueCount",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "default": 0
         },
-        "taxi_departed_count": {
-          "name": "taxi_departed_count",
+        "taxiDepartedCount": {
+          "name": "taxiDepartedCount",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "default": 0
         },
-        "created_at": {
-          "name": "created_at",
+        "createdAt": {
+          "name": "createdAt",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false,
           "default": "now()"
         },
-        "updated_at": {
-          "name": "updated_at",
+        "updatedAt": {
+          "name": "updatedAt",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false,
@@ -63,6 +146,146 @@
       },
       "indexes": {},
       "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.rank": {
+      "name": "rank",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "rank_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "rankName": {
+          "name": "rankName",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.route": {
+      "name": "route",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "route_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "fare": {
+          "name": "fare",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "fromRankId": {
+          "name": "fromRankId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "toRankId": {
+          "name": "toRankId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "route_fromRankId_rank_id_fk": {
+          "name": "route_fromRankId_rank_id_fk",
+          "tableFrom": "route",
+          "tableTo": "rank",
+          "columnsFrom": [
+            "fromRankId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "route_toRankId_rank_id_fk": {
+          "name": "route_toRankId_rank_id_fk",
+          "tableFrom": "route",
+          "tableTo": "rank",
+          "columnsFrom": [
+            "toRankId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
